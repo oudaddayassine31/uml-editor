@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UML Agent CityGML</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400;1,600&amp;display=swap" rel="stylesheet">
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand"><strong>UML Agent</strong></div>
+    <label class="mname" for="modelName"><span class="sr">Nom du modèle</span><input id="modelName" spellcheck="false"></label>
+    <div class="tools" role="toolbar" aria-label="Édition">
+      <button class="btn" id="btnAddClass" title="Nouvelle classe au centre de la vue (ou double-clic sur le fond)">+ Classe</button>
+      <button class="btn" id="btnAddNote" title="Nouvelle note">+ Note</button>
+      <button class="btn" id="btnLink" aria-pressed="false" title="Clique la source puis la cible, puis choisis le type de lien">Relier</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="btn" id="btnLayout" title="Range les boîtes que tu n'as pas placées à la main">Auto-layout</button>
+      <button class="btn" id="btnUndo" title="Ctrl+Z">Annuler</button>
+      <button class="btn" id="btnRedo" title="Ctrl+Y">Rétablir</button>
+    </div>
+    <div class="right">
+      <button class="pill" id="btnIssues" title="Afficher la validation"></button>
+      <button class="btn" id="btnImport">Importer</button>
+      <div class="menuwrap">
+        <button class="btn primary" id="btnExport" aria-haspopup="true" aria-expanded="false">Exporter</button>
+        <div class="menu" id="exportMenu" hidden>
+          <button data-export="png">Image (.png)</button>
+          <button data-export="svg">Diagramme vectoriel (.svg)</button>
+          <button data-export="puml">PlantUML (.puml)</button>
+          <button data-export="mmd">Mermaid (.mmd)</button>
+          <button data-export="json">Modèle + positions (.json)</button>
+          <button data-export="cj">Extension CityJSON 2.0 (.json)</button>
+        </div>
+      </div>
+      <button class="btn sq" id="btnHelp" aria-label="Aide et raccourcis" title="Aide et raccourcis">?</button>
+    </div>
+  </header>
+
+  <aside id="left">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabExplorer" data-tab="explorer" aria-selected="true">Explorateur</button>
+      <button role="tab" id="tabAgent" data-tab="agent" aria-selected="false">Agent <span class="beta">bêta</span></button>
+    </div>
+    <section id="pane-explorer" class="pane">
+      <div class="search"><label for="q" class="sr">Rechercher une classe</label><input id="q" type="search" placeholder="Rechercher une classe…" spellcheck="false"></div>
+      <div id="tree"></div>
+    </section>
+    <section id="pane-agent" class="pane" hidden>
+      <div class="phead">
+        <p class="avail" id="avail">Connexion à Claude…</p>
+        <label class="tier" for="tier"><span class="sr">Modèle</span>
+          <select id="tier"><option value="quick">Rapide</option><option value="default" selected>Standard</option><option value="complex">Max</option></select>
+        </label>
+      </div>
+      <div id="chat" aria-live="polite"></div>
+      <div id="chips"></div>
+      <form id="askForm">
+        <label for="ask" class="sr">Demande</label>
+        <textarea id="ask" rows="3" placeholder="Ex. ajoute les rôles manquants sur les associations"></textarea>
+        <div class="row">
+          <span class="kbd">Ctrl+Entrée</span>
+          <button type="button" class="btn" id="btnStop" hidden>Stop</button>
+          <button type="submit" class="btn primary" id="btnSend">Envoyer</button>
+        </div>
+      </form>
+      <details id="ext">
+        <summary>Autre LLM (local ou en ligne)</summary>
+        <p>Copie le prompt (ta demande ci-dessus + le modèle), colle-le dans n'importe quel LLM, puis colle sa réponse JSON ici.</p>
+        <button type="button" class="btn" id="btnCopyPrompt">Copier le prompt</button>
+        <label for="extOps" class="sr">Réponse JSON</label>
+        <textarea id="extOps" rows="4" spellcheck="false" placeholder='{"message": "...", "ops": [{"op": "add_class", ...}]}'></textarea>
+        <button type="button" class="btn" id="btnApplyExt">Appliquer</button>
+      </details>
+    </section>
+  </aside>
+
+  <main id="stage">
+    <svg id="svg" role="img" aria-label="Diagramme de classes UML">
+      <defs id="defs"></defs>
+      <rect id="gridbg" width="100%" height="100%" fill="url(#grid)"></rect>
+      <g id="viewport"><g id="gFrames"></g><g id="gEdges"></g><g id="gNodes"></g><g id="gNotes"></g><g id="gHandles"></g><g id="gOver"></g></g>
+    </svg>
+    <div id="empty" hidden>
+      <h2>Modèle vide</h2>
+      <p>Glisse ici un fichier PlantUML ou Mermaid, colle son texte (Ctrl+V), ou double-clique sur le fond pour créer une classe.</p>
+      <div class="btnrow"><button class="btn primary" id="emptyImport">Importer un fichier</button><button class="btn" id="emptyExample">Charger l'exemple</button></div>
+    </div>
+    <div class="overlay tl">
+      <div class="menuwrap">
+        <button class="btn" id="btnView" aria-haspopup="true" aria-expanded="false">Affichage</button>
+        <div class="menu left" id="viewMenu" hidden>
+          <label class="chk" for="optOps"><input type="checkbox" id="optOps"> Opérations</label>
+          <label class="chk" for="optFrames"><input type="checkbox" id="optFrames"> Cadres des packages</label>
+          <label class="chk" for="optChain"><input type="checkbox" id="optChain"> Héritage CityGML complet</label>
+          <label class="chk" for="optRefAttrs"><input type="checkbox" id="optRefAttrs"> Attributs des classes CityGML</label>
+          <button id="btnShowAll">Tout réafficher</button>
+        </div>
+      </div>
+      <span id="hiddenInfo" class="tag" hidden></span>
+    </div>
+    <div class="overlay hint" id="hint" hidden></div>
+    <div class="overlay br zoom">
+      <button class="btn sq" id="btnZoomOut" aria-label="Dézoomer">−</button>
+      <span id="zoomPct">100%</span>
+      <button class="btn sq" id="btnZoomIn" aria-label="Zoomer">+</button>
+      <button class="btn" id="btnFit">Ajuster</button>
+    </div>
+    <div id="nodebar" role="toolbar" aria-label="Classe sélectionnée" hidden></div>
+    <input id="inlineEd" class="inline" hidden spellcheck="false" aria-label="Édition en place">
+    <textarea id="inlineTa" class="inline" hidden spellcheck="false" aria-label="Texte de la note"></textarea>
+  </main>
+
+  <aside id="inspector" aria-label="Inspecteur"></aside>
+</div>
+
+<div id="ctx" class="menu ctx" hidden></div>
+<div id="modal" class="modal" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="mhead"><h3 id="mTitle"></h3><button class="btn sq" id="mClose" aria-label="Fermer">×</button></div>
+    <div class="mbody" id="mBody"></div>
+    <div class="mfoot" id="mFoot"></div>
+  </div>
+</div>
+<datalist id="dl-classes"></datalist>
+<datalist id="dl-own"></datalist>
+<datalist id="dl-types"></datalist>
+<datalist id="dl-pkg"></datalist>
+<datalist id="dl-stereo"></datalist>
+<datalist id="dl-mult"><option value="1"></option><option value="0..1"></option><option value="0..*"></option><option value="1..*"></option></datalist>
+<script>
+/*CORE*/
+</script>
+<script>
+/*UI*/
+</script>
+</body>
+</html>

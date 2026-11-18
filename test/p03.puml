@@ -1,0 +1,79 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+top to bottom direction
+title Package P03: 03 Soil and Ground Investigation (grey stubs: classes defined in other packages)
+' Generated from build_mcd_v37.py. Do not edit by hand.
+package "03 Soil and Ground Investigation" as P03 {
+  class SoilUnit <<ObjectType>> {
+    +classificationScheme : URI [1]
+    +soilClass : CharacterString [1]
+  }
+  class SoilBody <<FeatureType>> {
+    +origin : SoilOrigin [0..1]
+    +description : CharacterString [0..1]
+  }
+  enum SoilOrigin <<CodeList>> {
+    natural
+    reusedSoil
+    plantingSubstrate
+    engineeredFill
+    unknown
+  }
+  enum SoilSourceLevel <<CodeList>> {
+    defaultUrban
+    soilGrids
+    qualitativeDescription
+    fieldMeasurement
+  }
+  enum UncertaintyClass <<CodeList>> {
+    veryWide
+    wide
+    medium
+    narrow
+  }
+  class VanGenuchtenParameters <<DataType>> {
+    +thetaR : Real [0..1]
+    +thetaS : Real [0..1]
+    +alpha : Real [0..1]
+    +n : Real [0..1]
+    +Ks : Real [0..1]
+  }
+  class SoilProfile <<ObjectType>> {
+    +profileId : Identifier [1]
+    +profileDate : Date [0..1]
+    +method : CharacterString [0..1]
+  }
+  class SoilLayer <<ObjectType>> {
+    +top : DepthMeasurement [1]
+    +bottom : DepthMeasurement [1]
+    +sourceLevel : SoilSourceLevel [1]
+    +uncertaintyClass : UncertaintyClass [1]
+    +textureClass : CharacterString [0..1]
+    +sandFraction : Real [0..1]
+    +siltFraction : Real [0..1]
+    +clayFraction : Real [0..1]
+    +bulkDensity : PropertyValue [0..1]
+    +compaction : CompactionLevel [0..1]
+    +rubble : Boolean [0..1]
+    +standingWater : Boolean [0..1]
+    +hydraulicParameters : VanGenuchtenParameters [0..1]
+  }
+  enum CompactionLevel <<CodeList>> {
+    low
+    medium
+    high
+  }
+}
+class DomainEntity <<stub P01>>
+class Pit <<stub P04>>
+class SimulationConfiguration <<stub P10>>
+DomainEntity <|-- SoilBody
+SoilBody "0..*" -- "0..1" SoilUnit : classifiedAs
+SoilProfile "1" *-- "1..*" SoilLayer : hasLayer
+SoilLayer "0..*" -- "0..1" SoilUnit : classifiedAs
+SoilProfile "0..*" -- "0..1" DomainEntity : profileOf
+Pit "0..*" -- "0..1" SoilProfile : soilProfileOf
+SimulationConfiguration "0..*" -- "0..*" SoilProfile : usesSoilProfile
+SoilProfile "0..1" -- "0..*" SoilBody : characterises
+@enduml
